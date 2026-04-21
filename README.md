@@ -26,7 +26,7 @@ ML & Data
 scikit-learn
 pandas, numpy
 
-Visualization**
+Visualization
 matplotlib, seaborn
 
 📂 Project Structure

@@ -22,7 +22,7 @@ HTML, CSS, JavaScript
 Backend
 Python, Flask
 
-ML & Data**
+ML & Data
 scikit-learn
 pandas, numpy
 

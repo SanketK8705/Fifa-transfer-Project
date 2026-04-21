@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>FIFA Transfer Value Predictor</title>
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --green: #00ff87; --dark: #060910; --card: #0d1117;
+      --card2: #111827; --border: rgba(255,255,255,0.07);
+      --muted: rgba(255,255,255,0.4); --input: #111827;
+    }
+    body { background: var(--dark); color: #fff; font-family: 'DM Sans', sans-serif; min-height: 100vh; overflow-x: hidden; }
+    body::before {
+      content: ''; position: fixed; inset: 0;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.013) 0px, rgba(255,255,255,0.013) 1px, transparent 1px, transparent 80px),
+        repeating-linear-gradient(0deg,  rgba(255,255,255,0.013) 0px, rgba(255,255,255,0.013) 1px, transparent 1px, transparent 80px);
+      pointer-events: none; z-index: 0;
+    }
+    .wrap { position: relative; z-index: 1; max-width: 1120px; margin: 0 auto; padding: 40px 24px 100px; }
+
+    header { text-align: center; margin-bottom: 44px; }
+    .badge {
+      display: inline-block; background: rgba(0,255,135,0.1);
+      border: 1px solid rgba(0,255,135,0.3); color: var(--green);
+      font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+      padding: 5px 14px; border-radius: 20px; margin-bottom: 14px;
+    }
+    h1 { font-family: 'Bebas Neue', sans-serif; font-size: clamp(44px,8vw,82px); line-height: 0.93; margin-bottom: 10px; }
+    h1 span { color: var(--green); }
+    header p { color: var(--muted); font-size: 15px; font-weight: 300; }
+
+    .scores { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 36px; }
+    .sc { background: var(--card); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; text-align: center; transition: all 0.3s; }
+    .sc.best { border-color: rgba(0,255,135,0.4); }
+    .sc.dimmed { opacity: 0.35; }
+    .sc .sname { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+    .sc .sval  { font-family: 'Bebas Neue', sans-serif; font-size: 30px; }
+    .sc.best .sval { color: var(--green); }
+    .sc .slabel { font-size: 10px; color: var(--muted); margin-top: 2px; }
+
+    .tabs { display: flex; gap: 6px; margin-bottom: 24px; }
+    .tab {
+      padding: 9px 22px; border-radius: 8px; border: 1px solid var(--border);
+      background: transparent; color: var(--muted);
+      font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 500;
+      cursor: pointer; transition: all 0.2s;
+    }
+    .tab.active { background: var(--green); color: #000; border-color: var(--green); }
+
+    .card { background: var(--card); border: 1px solid var(--border); border-radius: 18px; padding: 32px; margin-bottom: 20px; }
+
+    .famous-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 8px; }
+    .pbtn {
+      background: var(--card2); border: 1px solid var(--border);
+      border-radius: 10px; padding: 12px 10px; text-align: center;
+      cursor: pointer; transition: all 0.18s; color: white;
+      font-family: 'DM Sans', sans-serif; font-size: 12px;
+    }
+    .pbtn:hover { border-color: rgba(0,255,135,0.4); background: rgba(0,255,135,0.05); }
+    .pbtn.selected { border-color: var(--green); background: rgba(0,255,135,0.08); color: var(--green); }
+    .pbtn .pname { font-weight: 500; margin-bottom: 3px; }
+    .pbtn .pclub { font-size: 10px; color: var(--muted); }
+
+    .sec-title {
+      font-size: 10px; font-weight: 500; color: var(--green);
+      letter-spacing: 2px; text-transform: uppercase;
+      margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+    }
+    .g4 { display: grid; grid-template-columns: repeat(4,1fr); gap: 11px; margin-bottom: 24px; }
+    .g3 { display: grid; grid-template-columns: repeat(3,1fr); gap: 11px; margin-bottom: 24px; }
+
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: 10px; color: var(--muted); letter-spacing: 0.4px; }
+    .field input, .field select {
+      background: var(--input); border: 1px solid var(--border);
+      border-radius: 7px; color: #fff;
+      font-family: 'DM Sans', sans-serif; font-size: 13px;
+      padding: 9px 11px; outline: none; transition: border-color 0.2s;
+      appearance: none; width: 100%;
+    }
+    .field input:focus, .field select:focus { border-color: rgba(0,255,135,0.45); }
+    .field input.invalid { border-color: #ff4444 !important; }
+    .field input::placeholder { color: rgba(255,255,255,0.13); }
+    .field select option { background: #111; }
+    .field .hint { font-size: 10px; color: #ff4444; margin-top: 3px; display: none; }
+    .field .hint.show { display: block; }
+
+    /* slider styling - fully visible track */
+    .slider-wrap { display: flex; flex-direction: column; gap: 6px; }
+    .slider-row { display: flex; align-items: center; gap: 8px; }
+    .slider-row input[type=range] {
+      flex: 1;
+      height: 6px;
+      border: none;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.15);
+      outline: none;
+      cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      padding: 0;
+    }
+    .slider-row input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--green);
+      cursor: pointer;
+      border: 2px solid #000;
+      box-shadow: 0 0 6px rgba(0,255,135,0.5);
+    }
+    .slider-row input[type=range]::-webkit-slider-runnable-track {
+      height: 6px;
+      border-radius: 3px;
+      background: rgba(255,255,255,0.15);
+    }
+    .sv {
+      font-family: 'Bebas Neue', sans-serif; font-size: 16px;
+      color: var(--green); min-width: 20px; text-align: center;
+      background: rgba(0,255,135,0.1); border-radius: 4px;
+      padding: 2px 6px;
+    }
+    .slider-dots {
+      display: flex; justify-content: space-between;
+      padding: 0 5px; margin-top: 2px;
+    }
+    .slider-dots span { font-size: 9px; color: rgba(255,255,255,0.25); }
+
+    .pred-btn {
+      width: 100%; padding: 15px; background: var(--green); color: #000;
+      border: none; border-radius: 9px;
+      font-family: 'Bebas Neue', sans-serif; font-size: 21px; letter-spacing: 2px;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      gap: 10px; transition: opacity 0.2s; margin-top: 6px;
+    }
+    .pred-btn:hover { opacity: 0.87; }
+    .pred-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    .spin {
+      width: 18px; height: 18px; border: 2px solid rgba(0,0,0,0.25);
+      border-top-color: #000; border-radius: 50%;
+      animation: spin 0.6s linear infinite; display: none;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .err {
+      margin-top: 14px; background: rgba(255,60,60,0.07);
+      border: 1px solid rgba(255,60,60,0.2);
+      border-radius: 9px; padding: 13px 16px;
+      color: #ff6b6b; font-size: 13px; display: none;
+    }
+    .err.show { display: block; }
+
+    .result-wrap { margin-top: 30px; display: none; }
+    .result-wrap.show { display: block; animation: up 0.4s ease; }
+    @keyframes up { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:translateY(0); } }
+
+    .val-card {
+      background: rgba(0,255,135,0.05); border: 1px solid rgba(0,255,135,0.2);
+      border-radius: 16px; padding: 28px; text-align: center; margin-bottom: 28px;
+    }
+    .val-label { font-size: 11px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 6px; }
+    .val-num { font-family: 'Bebas Neue', sans-serif; font-size: clamp(52px,10vw,78px); color: var(--green); line-height: 1; margin-bottom: 6px; }
+    .val-sub { font-size: 12px; color: var(--muted); }
+
+    .graphs-heading { font-family: 'Bebas Neue', sans-serif; font-size: 30px; margin-bottom: 18px; }
+    .graphs-heading span { color: var(--green); }
+
+    .gg { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .gc { background: var(--card); border: 1px solid var(--border); border-radius: 14px; overflow: hidden; transition: border-color 0.2s; align-self: start; }
+    .gc:hover { border-color: rgba(0,255,135,0.2); }
+    .gc.full { grid-column: 1 / -1; }
+    .gc img { width: 100%; display: block; height: auto; max-height: 600px; object-fit: contain; }
+    .gc .glabel { padding: 11px 15px; font-size: 10px; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; border-top: 1px solid var(--border); }
+
+    footer { text-align: center; margin-top: 50px; font-size: 11px; color: rgba(255,255,255,0.13); }
+
+    @media(max-width:640px) {
+      .scores { grid-template-columns: 1fr; }
+      .famous-grid { grid-template-columns: repeat(2,1fr); }
+      .g4,.g3 { grid-template-columns: 1fr 1fr; }
+      .gg { grid-template-columns: 1fr; }
+      .gc.full { grid-column: 1; }
+      .card { padding: 18px; }
+    }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="badge">ML Project — FIFA 19 Dataset</div>
+    <h1>Transfer<br/><span>Value</span> Predictor</h1>
+    <p>Select a famous player or enter custom stats — get predicted value + 8 live graphs</p>
+  </header>
+
+  <div class="scores">
+    <div class="sc dimmed" id="sc-lr">
+      <div class="sname">Linear Regression</div>
+      <div class="sval">{{ scores.lr }}%</div>
+      <div class="slabel">R² · MAE €{{ mae_scores.lr }}M</div>
+    </div>
+    <div class="sc dimmed" id="sc-rf">
+      <div class="sname">Random Forest</div>
+      <div class="sval">{{ scores.rf }}%</div>
+      <div class="slabel">R² · MAE €{{ mae_scores.rf }}M</div>
+    </div>
+    <div class="sc best dimmed" id="sc-gb">
+      <div class="sname">Gradient Boosting ✦ Best</div>
+      <div class="sval">{{ scores.gb }}%</div>
+      <div class="slabel">R² · MAE €{{ mae_scores.gb }}M</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" id="tab-famous-btn" onclick="switchTab('famous')">Famous Players</button>
+    <button class="tab" id="tab-custom-btn" onclick="switchTab('custom')">Custom Player</button>
+  </div>
+
+  <!-- FAMOUS PLAYERS TAB -->
+  <div id="tab-famous">
+    <div class="card">
+      <div class="sec-title">Select a Player</div>
+      <div class="famous-grid" id="famous-grid">
+        {% for p in famous_players %}
+        <div class="pbtn" id="pbtn-{{ loop.index0 }}" onclick="selectPlayer({{ loop.index0 }})">
+          <div class="pname">{{ p.name }}</div>
+          <div class="pclub">{{ p.club }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <p style="font-size:11px;color:var(--muted);margin-top:12px">Stats auto-fill from FIFA 19 dataset</p>
+    </div>
+
+    <div class="card" id="player-info-card" style="display:none">
+      <div class="sec-title" id="player-info-title">Player Stats</div>
+      <div class="g4" id="player-info-grid"></div>
+      <button class="pred-btn" id="famous-pred-btn" onclick="predictFamous()">
+        <span id="famous-btn-text">PREDICT VALUE</span>
+        <div class="spin" id="famous-spin"></div>
+      </button>
+      <div class="err" id="famous-err"></div>
+    </div>
+
+    <div class="result-wrap" id="famous-result">
+      <div class="val-card">
+        <div class="val-label">Predicted Transfer Market Value</div>
+        <div class="val-num" id="famous-val-num">—</div>
+        <div class="val-sub" id="famous-val-sub"></div>
+      </div>
+      <div class="graphs-heading">Live <span>Graphs</span></div>
+      <div class="gg">
+        <div class="gc full"><img id="fg1"/><div class="glabel">Overall rating vs market value</div></div>
+        <div class="gc full"><img id="fg3"/><div class="glabel">Value vs similar rated players</div></div>
+        <div class="gc"><img id="fg2"/><div class="glabel">Skill radar chart</div></div>
+        <div class="gc"><img id="fg5"/><div class="glabel">All 3 model predictions compared</div></div>
+        <div class="gc"><img id="fg4"/><div class="glabel">Age vs market value</div></div>
+        <div class="gc"><img id="fg8"/><div class="glabel">Market value distribution</div></div>
+        <div class="gc full"><img id="fg7"/><div class="glabel">Player stats vs position average</div></div>
+        <div class="gc full"><img id="fg6"/><div class="glabel">Feature importance</div></div>
+</div>
+    </div>
+  </div>
+
+  <!-- CUSTOM PLAYER TAB -->
+  <div id="tab-custom" style="display:none">
+    <div class="card">
+      <div class="sec-title">Basic Info</div>
+      <div class="g4">
+        <div class="field">
+          <label>Age</label>
+          <input type="number" id="c-age" placeholder="15–45" min="15" max="45"
+                 oninput="validateRange(this,15,45)"/>
+          <span class="hint" id="hint-c-age">Enter a value between 15 and 45</span>
+        </div>
+        <div class="field">
+          <label>Overall Rating</label>
+          <input type="number" id="c-overall" placeholder="40–99" min="40" max="99"
+                 oninput="validateRange(this,40,99)"/>
+          <span class="hint" id="hint-c-overall">Enter a value between 40 and 99</span>
+        </div>
+        <div class="field">
+          <label>Potential Rating</label>
+          <input type="number" id="c-potential" placeholder="40–99" min="40" max="99"
+                 oninput="validateRange(this,40,99)"/>
+          <span class="hint" id="hint-c-potential">Enter a value between 40 and 99</span>
+        </div>
+        <div class="field">
+          <label>Wage (€/week)</label>
+          <input type="number" id="c-wage" placeholder="e.g. 100000" min="0"
+                 oninput="validateRange(this,0,10000000)"/>
+          <span class="hint" id="hint-c-wage">Enter a valid wage amount</span>
+        </div>
+      </div>
+
+      <div class="g3">
+        <div class="field">
+          <label>Position</label>
+          <select id="c-position">
+            <option value="">Select position</option>
+            {% for pos in positions %}<option value="{{ pos }}">{{ pos }}</option>{% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Intl Reputation</label>
+          <div class="slider-wrap">
+            <div class="slider-row">
+              <input type="range" id="c-rep" min="1" max="5" value="1"
+                     oninput="sv('c-rep-v', this.value); updateSliderColor(this)"/>
+              <span class="sv" id="c-rep-v">1</span>
+            </div>
+            <div class="slider-dots">
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Weak Foot</label>
+          <div class="slider-wrap">
+            <div class="slider-row">
+              <input type="range" id="c-wf" min="1" max="5" value="3"
+                     oninput="sv('c-wf-v', this.value); updateSliderColor(this)"/>
+              <span class="sv" id="c-wf-v">3</span>
+            </div>
+            <div class="slider-dots">
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="sec-title">Attacking</div>
+      <div class="g4">
+        <div class="field">
+          <label>Finishing</label>
+          <input type="number" id="c-finishing" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-finishing">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Shot Power</label>
+          <input type="number" id="c-shotpower" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-shotpower">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Crossing</label>
+          <input type="number" id="c-crossing" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-crossing">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Heading</label>
+          <input type="number" id="c-heading" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-heading">Enter a value between 1 and 99</span>
+        </div>
+      </div>
+
+      <div class="sec-title">Technical</div>
+      <div class="g4">
+        <div class="field">
+          <label>Dribbling</label>
+          <input type="number" id="c-dribbling" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-dribbling">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Ball Control</label>
+          <input type="number" id="c-ballcontrol" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-ballcontrol">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Short Passing</label>
+          <input type="number" id="c-passing" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-passing">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Vision</label>
+          <input type="number" id="c-vision" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-vision">Enter a value between 1 and 99</span>
+        </div>
+      </div>
+
+      <div class="sec-title">Physical</div>
+      <div class="g4">
+        <div class="field">
+          <label>Acceleration</label>
+          <input type="number" id="c-acceleration" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-acceleration">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Sprint Speed</label>
+          <input type="number" id="c-sprintspeed" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-sprintspeed">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Stamina</label>
+          <input type="number" id="c-stamina" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-stamina">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Strength</label>
+          <input type="number" id="c-strength" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-strength">Enter a value between 1 and 99</span>
+        </div>
+      </div>
+
+      <div class="sec-title">Other</div>
+      <div class="g3">
+        <div class="field">
+          <label>Reactions</label>
+          <input type="number" id="c-reactions" placeholder="1–99" min="1" max="99" oninput="validateRange(this,1,99)"/>
+          <span class="hint" id="hint-c-reactions">Enter a value between 1 and 99</span>
+        </div>
+        <div class="field">
+          <label>Skill Moves</label>
+          <div class="slider-wrap">
+            <div class="slider-row">
+              <input type="range" id="c-sm" min="1" max="5" value="3"
+                     oninput="sv('c-sm-v', this.value); updateSliderColor(this)"/>
+              <span class="sv" id="c-sm-v">3</span>
+            </div>
+            <div class="slider-dots">
+              <span>1</span><span>2</span><span>3</span><span>4</span><span>5</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <button class="pred-btn" id="custom-pred-btn" onclick="predictCustom()">
+        <span id="custom-btn-text">PREDICT MARKET VALUE</span>
+        <div class="spin" id="custom-spin"></div>
+      </button>
+      <div class="err" id="custom-err"></div>
+    </div>
+
+    <div class="result-wrap" id="custom-result">
+      <div class="val-card">
+        <div class="val-label">Predicted Transfer Market Value</div>
+        <div class="val-num" id="custom-val-num">—</div>
+        <div class="val-sub" id="custom-val-sub"></div>
+      </div>
+      <div class="graphs-heading">Live <span>Graphs</span></div>
+      <div class="gg">
+        <div class="gc full"><img id="cg1"/><div class="glabel">Overall rating vs market value</div></div>
+        <div class="gc full"><img id="cg3"/><div class="glabel">Value vs similar rated players</div></div>
+        <div class="gc"><img id="cg2"/><div class="glabel">Skill radar chart</div></div>
+        <div class="gc"><img id="cg5"/><div class="glabel">All 3 model predictions compared</div></div>
+        <div class="gc"><img id="cg4"/><div class="glabel">Age vs market value</div></div>
+        <div class="gc"><img id="cg8"/><div class="glabel">Market value distribution</div></div>
+        <div class="gc full"><img id="cg7"/><div class="glabel">Player stats vs position average</div></div>
+        <div class="gc full"><img id="cg6"/><div class="glabel">Feature importance</div></div>
+    </div>
+    </div>
+  </div>
+
+  <footer>FIFA 19 Dataset · 18,207 Players · Gradient Boosting · ML Project Review</footer>
+</div>
+
+<script>
+  const famousPlayers = {{ famous_players | tojson }};
+  let selectedIdx = null;
+
+  // update slider track fill color as you drag
+  function updateSliderColor(slider) {
+    const val = (slider.value - slider.min) / (slider.max - slider.min) * 100;
+    slider.style.background = `linear-gradient(to right, #00ff87 ${val}%, rgba(255,255,255,0.15) ${val}%)`;
+  }
+
+  // init all sliders with correct fill on page load
+  document.querySelectorAll('input[type=range]').forEach(s => updateSliderColor(s));
+
+  function sv(id, val) { document.getElementById(id).textContent = val; }
+
+  // validate number inputs - show red border + hint if out of range
+  function validateRange(input, min, max) {
+    const val  = parseFloat(input.value);
+    const hint = document.getElementById('hint-' + input.id);
+    if (input.value === '' || (val >= min && val <= max)) {
+      input.classList.remove('invalid');
+      if (hint) hint.classList.remove('show');
+    } else {
+      input.classList.add('invalid');
+      if (hint) hint.classList.add('show');
+    }
+  }
+
+  // check all custom inputs are valid before predicting
+  function allValid() {
+    const numInputs = document.querySelectorAll('#tab-custom input[type=number]');
+    let ok = true;
+    numInputs.forEach(inp => {
+      if (inp.value === '') { ok = false; }
+      if (inp.classList.contains('invalid')) { ok = false; }
+    });
+    const pos = document.getElementById('c-position').value;
+    if (!pos) { ok = false; }
+    return ok;
+  }
+
+  function switchTab(name) {
+    document.getElementById('tab-famous-btn').classList.toggle('active', name === 'famous');
+    document.getElementById('tab-custom-btn').classList.toggle('active',  name === 'custom');
+    document.getElementById('tab-famous').style.display = name === 'famous' ? 'block' : 'none';
+    document.getElementById('tab-custom').style.display = name === 'custom'  ? 'block' : 'none';
+    resetScores();
+  }
+
+  function resetScores() {
+    ['sc-lr','sc-rf','sc-gb'].forEach(id => document.getElementById(id).classList.add('dimmed'));
+  }
+
+  function activateScores() {
+    ['sc-lr','sc-rf','sc-gb'].forEach(id => document.getElementById(id).classList.remove('dimmed'));
+  }
+
+  function selectPlayer(idx) {
+    document.querySelectorAll('.pbtn').forEach(b => b.classList.remove('selected'));
+    document.getElementById('pbtn-' + idx).classList.add('selected');
+    selectedIdx = idx;
+    const p = famousPlayers[idx];
+    const card = document.getElementById('player-info-card');
+    card.style.display = 'block';
+    document.getElementById('player-info-title').textContent =
+      p.name + ' — ' + p.club + ' (' + p.nationality + ')';
+    const statMap = [
+      ['Age', p.age], ['Overall', p.overall], ['Potential', p.potential],
+      ['Position', p.position], ['Wage (€/wk)', p.wage.toLocaleString()],
+      ['Intl Rep', p.reputation], ['Dribbling', p.dribbling],
+      ['Finishing', p.finishing], ['Sprint Speed', p.sprintspeed],
+      ['Passing', p.passing], ['Reactions', p.reactions], ['Vision', p.vision],
+    ];
+    document.getElementById('player-info-grid').innerHTML = statMap.map(([l,v]) => `
+      <div class="field">
+        <label>${l}</label>
+        <input type="text" value="${v}" readonly style="opacity:0.65;cursor:default"/>
+      </div>`).join('');
+    document.getElementById('famous-result').classList.remove('show');
+    resetScores();
+    card.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  async function predictFamous() {
+    if (selectedIdx === null) return;
+    const p = famousPlayers[selectedIdx];
+    await runPredict({
+      age: p.age, overall: p.overall, potential: p.potential,
+      wage: p.wage, position: p.position, reputation: p.reputation,
+      weakfoot: p.weakfoot, skillmoves: p.skillmoves,
+      crossing: p.crossing, finishing: p.finishing, heading: p.heading,
+      passing: p.passing, dribbling: p.dribbling, ballcontrol: p.ballcontrol,
+      acceleration: p.acceleration, sprintspeed: p.sprintspeed,
+      reactions: p.reactions, shotpower: p.shotpower,
+      stamina: p.stamina, strength: p.strength, vision: p.vision,
+      player_name: p.name,
+    }, 'famous');
+  }
+
+  async function predictCustom() {
+    if (!allValid()) {
+      document.getElementById('custom-err').textContent = 'Please fill in all fields with valid values!';
+      document.getElementById('custom-err').classList.add('show');
+      return;
+    }
+    document.getElementById('custom-err').classList.remove('show');
+    const g = id => document.getElementById(id).value;
+    await runPredict({
+      age: g('c-age'), overall: g('c-overall'), potential: g('c-potential'),
+      wage: g('c-wage'), position: g('c-position'), reputation: g('c-rep'),
+      weakfoot: g('c-wf'), skillmoves: g('c-sm'),
+      crossing: g('c-crossing'), finishing: g('c-finishing'), heading: g('c-heading'),
+      passing: g('c-passing'), dribbling: g('c-dribbling'), ballcontrol: g('c-ballcontrol'),
+      acceleration: g('c-acceleration'), sprintspeed: g('c-sprintspeed'),
+      reactions: g('c-reactions'), shotpower: g('c-shotpower'),
+      stamina: g('c-stamina'), strength: g('c-strength'), vision: g('c-vision'),
+      player_name: 'Custom Player',
+    }, 'custom');
+  }
+
+  async function runPredict(payload, mode) {
+    const btnId  = mode + '-pred-btn';
+    const textId = mode + '-btn-text';
+    const spinId = mode + '-spin';
+    const errId  = mode + '-err';
+    const resId  = mode + '-result';
+    const numId  = mode + '-val-num';
+    const subId  = mode + '-val-sub';
+    const prefix = mode === 'famous' ? 'f' : 'c';
+
+    const btn  = document.getElementById(btnId);
+    const spin = document.getElementById(spinId);
+    const err  = document.getElementById(errId);
+    const res  = document.getElementById(resId);
+
+    err.classList.remove('show');
+    res.classList.remove('show');
+    btn.disabled = true;
+    document.getElementById(textId).textContent = 'PREDICTING...';
+    spin.style.display = 'block';
+
+    try {
+      const r    = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      const data = await r.json();
+
+      if (data.error) {
+        err.textContent = data.error;
+        err.classList.add('show');
+      } else {
+        document.getElementById(numId).textContent = data.display;
+        document.getElementById(subId).textContent =
+          'Gradient Boosting · R² {{ scores.gb }}% · ' + payload.player_name;
+        for (let i = 0; i < 8; i++) {
+          document.getElementById(prefix + 'g' + (i+1)).src =
+            'data:image/png;base64,' + data.graphs[i];
+        }
+        res.classList.add('show');
+        activateScores();
+        res.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    } catch(e) {
+      err.textContent = 'Something went wrong. Check all fields!';
+      err.classList.add('show');
+    }
+
+    btn.disabled = false;
+    document.getElementById(textId).textContent =
+      mode === 'famous' ? 'PREDICT VALUE' : 'PREDICT MARKET VALUE';
+    spin.style.display = 'none';
+  }
+</script>
+</body>
+</html>
